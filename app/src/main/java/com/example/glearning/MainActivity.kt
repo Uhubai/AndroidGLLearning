@@ -13,7 +13,7 @@ class MainActivity : AppCompatActivity() {
         
         glSurfaceView = GLSurfaceView(this)
         glSurfaceView.setEGLContextClientVersion(2)
-        glSurfaceView.setRenderer(Day12Renderer())
+        glSurfaceView.setRenderer(Day14Renderer())
         setContentView(glSurfaceView)
     }
     
