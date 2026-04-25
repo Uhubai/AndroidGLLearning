@@ -237,7 +237,7 @@ class Day10Renderer : GLSurfaceView.Renderer {
         
         // 创建纹理
         textureId1 = createTexture(createCheckerboardTexture())
-        textureId2 = createGradientTexture()
+        textureId2 = loadGradientTexture()
         
         // 创建顶点数据缓冲区
         val vb = ByteBuffer.allocateDirect(RECT_COORDS_AND_UVS.size * FLOAT_SIZE)
@@ -297,14 +297,13 @@ class Day10Renderer : GLSurfaceView.Renderer {
     /**
      * 生成渐变纹理（程序化）
      */
-    private fun createGradientTexture(): Int {
+    private fun loadGradientTexture(): Int {
         val bitmap = createGradientTexture()
         val textureId = IntArray(1)
         
         GLES20.glGenTextures(1, textureId, 0)
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textureId[0])
         
-        // 使用 GL_NEAREST 过滤（像素化效果）
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST)
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)

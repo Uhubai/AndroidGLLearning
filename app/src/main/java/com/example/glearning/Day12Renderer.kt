@@ -26,6 +26,7 @@ import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.opengl.Matrix
 import android.opengl.GLUtils
+import kotlin.math.sin
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -339,7 +340,7 @@ class Day12Renderer : GLSurfaceView.Renderer {
         drawQuad(
             -80f, 80f,
             0,  // 线性混合
-            (Math.sin(elapsedSeconds) * 0.5 + 0.5).toFloat()
+            (sin(elapsedSeconds) * 0.5f + 0.5f)
         )
         
         // 右上：正片叠底（变暗）
@@ -360,7 +361,7 @@ class Day12Renderer : GLSurfaceView.Renderer {
         drawQuad(
             80f, -80f,
             3,  // 叠加
-            (Math.sin(elapsedSeconds * 0.5) * 0.5 + 0.5).toFloat()
+            (sin(elapsedSeconds * 0.5f) * 0.5f + 0.5f)
         )
         
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, 0)
