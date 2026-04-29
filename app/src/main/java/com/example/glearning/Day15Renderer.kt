@@ -237,14 +237,128 @@ class Day15Renderer(
     }
     
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-        // TODO: 在 Task 7 中实现
+        // 设置背景色（深灰色）
+        GLES20.glClearColor(0.1f, 0.1f, 0.1f, 1.0f)
+        
+        // 编译着色器
+        val vertexShader = loadShader(GLES20.GL_VERTEX_SHADER, VERTEX_SHADER_CODE)
+        val fragmentShader = loadShader(GLES20.GL_FRAGMENT_SHADER, FRAGMENT_SHADER_CODE)
+        
+        if (vertexShader == 0 || fragmentShader == 0) {
+            Log.e(TAG, "着色器编译失败")
+            return
+        }
+        
+        // 创建着色器程序
+        program = GLES20.glCreateProgram()
+        GLES20.glAttachShader(program, vertexShader)
+        GLES20.glAttachShader(program, fragmentShader)
+        GLES20.glLinkProgram(program)
+        
+        // 检查链接状态
+        val linked = IntArray(1)
+        GLES20.glGetProgramiv(program, GLES20.GL_LINK_STATUS, linked, 0)
+        if (linked[0] == GLES20.GL_FALSE) {
+            Log.e(TAG, "着色器程序链接失败: ${GLES20.glGetProgramInfoLog(program)}")
+            return
+        }
+        
+        // 获取 attribute 和 uniform 的位置
+        positionHandle = GLES20.glGetAttribLocation(program, "a_Position")
+        textureCoordHandle = GLES20.glGetAttribLocation(program, "a_TextureCoord")
+        matrixHandle = GLES20.glGetUniformLocation(program, "u_Matrix")
+        textureTransformHandle = GLES20.glGetUniformLocation(program, "u_TextureTransform")
+        textureHandle = GLES20.glGetUniformLocation(program, "u_Texture")
+        
+        // 创建顶点缓冲区
+        val vb = ByteBuffer.allocateDirect(FULL_SCREEN_RECT.size * FLOAT_SIZE)
+        vb.order(ByteOrder.nativeOrder())
+        vertexBuffer = vb.asFloatBuffer()
+        vertexBuffer?.put(FULL_SCREEN_RECT)
+        vertexBuffer?.position(0)
+        
+        // 创建 SurfaceTexture（必须在 GL 线程）
+        createSurfaceTexture()
+        
+        // 初始化变换矩阵
+        Matrix.setIdentityM(textureTransformMatrix, 0)
+        Matrix.setIdentityM(mvpMatrix, 0)
+        
+        Log.d(TAG, "Renderer 初始化完成")
     }
     
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
-        // TODO: 在 Task 7 中实现
+        // 设置视口
+        GLES20.glViewport(0, 0, width, height)
+        
+        // 相机预览通常是全屏，使用单位矩阵即可
+        // 如果需要调整显示比例，可以在这里设置正交投影矩阵
+        Matrix.setIdentityM(mvpMatrix, 0)
+        
+        Log.d(TAG, "视口设置完成: width=$width, height=$height")
     }
     
     override fun onDrawFrame(gl: GL10?) {
-        // TODO: 在 Task 7 中实现
+        // 清除缓冲区
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        
+        // 检查 SurfaceTexture 是否就绪
+        if (!surfaceTextureReady || surfaceTexture == null) {
+            // SurfaceTexture 未就绪，显示背景色
+            return
+        }
+        
+        // 更新纹理内容
+        // 从相机获取最新帧并写入 OES 纹理
+        // 必须在 GL 线程中调用
+        surfaceTexture?.updateTexImage()
+        
+        // 获取变换矩阵
+        // 此矩阵用于校正相机传感器的旋转和裁剪
+        // 如果不使用此矩阵，画面可能显示不正确
+        surfaceTexture?.getTransformMatrix(textureTransformMatrix)
+        
+        // 使用着色器程序
+        GLES20.glUseProgram(program)
+        
+        // 设置 MVP 矩阵（全屏显示，使用单位矩阵）
+        GLES20.glUniformMatrix4fv(matrixHandle, 1, false, mvpMatrix, 0)
+        
+        // 设置纹理变换矩阵
+        GLES20.glUniformMatrix4fv(textureTransformHandle, 1, false, textureTransformMatrix, 0)
+        
+        // 绑定 OES 纹理
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
+        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTextureId)
+        GLES20.glUniform1i(textureHandle, 0)
+        
+        // 绘制全屏矩形
+        drawFullScreenRect()
+        
+        // 解绑纹理
+        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, 0)
+    }
+    
+    /**
+     * 绘制全屏矩形
+     *
+     * 使用 GL_TRIANGLE_STRIP 绘制矩形
+     * 4 个顶点，绘制顺序：0-1-2-3
+     */
+    private fun drawFullScreenRect() {
+        val stride = (COORDS_PER_VERTEX + UV_PER_VERTEX) * FLOAT_SIZE
+        
+        // 设置顶点位置
+        vertexBuffer?.position(0)
+        GLES20.glVertexAttribPointer(positionHandle, COORDS_PER_VERTEX, GLES20.GL_FLOAT, false, stride, vertexBuffer)
+        GLES20.glEnableVertexAttribArray(positionHandle)
+        
+        // 设置纹理坐标
+        vertexBuffer?.position(COORDS_PER_VERTEX)
+        GLES20.glVertexAttribPointer(textureCoordHandle, UV_PER_VERTEX, GLES20.GL_FLOAT, false, stride, vertexBuffer)
+        GLES20.glEnableVertexAttribArray(textureCoordHandle)
+        
+        // 绘制矩形（4 个顶点）
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
     }
 }
