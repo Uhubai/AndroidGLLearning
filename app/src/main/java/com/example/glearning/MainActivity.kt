@@ -5,7 +5,7 @@
  * - Day 1-14：普通渲染器，直接选择使用
  * - Day 15：相机渲染器，需要相机权限和 CameraHelper
  *
- * 启动时显示选择菜单，点击菜单按钮可切换渲染器
+ * 点击右上角"切换"按钮可选择不同渲染器
  */
 package com.example.glearning
 
@@ -13,8 +13,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.opengl.GLSurfaceView
 import android.os.Bundle
-import android.view.Menu
-import android.view.MenuItem
+import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -23,9 +23,9 @@ import androidx.core.content.ContextCompat
 class MainActivity : AppCompatActivity() {
     
     private var glSurfaceView: GLSurfaceView? = null
+    private var glContainer: FrameLayout? = null
     private var cameraHelper: CameraHelper? = null
     private var currentDay: Int = 14
-    private var isInitialized: Boolean = false
     
     private val cameraPermissionLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
@@ -40,24 +40,23 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // 先设置默认渲染器，确保界面正常显示
+        // 使用布局文件
+        setContentView(R.layout.activity_main)
+        
+        // 获取容器和按钮
+        glContainer = findViewById(R.id.glContainer)
+        val btnSwitch = findViewById<Button>(R.id.btnSwitchRenderer)
+        
+        // 设置按钮点击事件
+        btnSwitch.setOnClickListener {
+            showRendererSelector()
+        }
+        
+        // 初始化默认渲染器
         setupRenderer(currentDay)
         
-        // 显示选择菜单
+        // 启动时显示选择菜单
         showRendererSelector()
-    }
-    
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menuInflater.inflate(R.menu.main_menu, menu)
-        return true
-    }
-    
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == R.id.menu_select_renderer) {
-            showRendererSelector()
-            return true
-        }
-        return super.onOptionsItemSelected(item)
     }
     
     private fun showRendererSelector() {
@@ -84,7 +83,6 @@ class MainActivity : AppCompatActivity() {
                 val newDay = which + 1
                 if (newDay != currentDay) {
                     currentDay = newDay
-                    // 切换渲染器需要重新创建 GLSurfaceView
                     setupRenderer(currentDay)
                     Toast.makeText(this, "已切换到 Day $currentDay", Toast.LENGTH_SHORT).show()
                 }
@@ -94,12 +92,13 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun setupRenderer(day: Int) {
-        // 先清理旧的相机资源
+        // 清理旧的相机资源
         cameraHelper?.stopCamera()
         cameraHelper = null
         
-        // 先暂停旧的 GLSurfaceView
+        // 暂停并移除旧的 GLSurfaceView
         glSurfaceView?.onPause()
+        glContainer?.removeAllViews()
         
         // 创建新的 GLSurfaceView
         val newGlSurfaceView = GLSurfaceView(this)
@@ -111,20 +110,17 @@ class MainActivity : AppCompatActivity() {
             cameraHelper = helper
             checkCameraPermission()
             newGlSurfaceView.setRenderer(Day15Renderer(helper, newGlSurfaceView))
-            // Day 15 使用按需渲染模式（帧到达时触发）
             newGlSurfaceView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
         } else {
             newGlSurfaceView.setRenderer(createRenderer(day))
-            // Day 1-14 使用连续渲染模式（动画）
             newGlSurfaceView.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
         }
         
-        // 设置新的视图
-        setContentView(newGlSurfaceView)
+        // 添加到容器
+        glContainer?.addView(newGlSurfaceView)
         glSurfaceView = newGlSurfaceView
-        isInitialized = true
         
-        // 如果已经在 onResume 状态，需要调用 onResume
+        // 启动渲染
         newGlSurfaceView.onResume()
         
         // 启动相机（如果是 Day 15）
@@ -161,11 +157,9 @@ class MainActivity : AppCompatActivity() {
     
     override fun onResume() {
         super.onResume()
-        if (isInitialized) {
-            glSurfaceView?.onResume()
-            if (currentDay == 15 && cameraHelper?.hasCameraPermission() == true) {
-                cameraHelper?.startCamera()
-            }
+        glSurfaceView?.onResume()
+        if (currentDay == 15 && cameraHelper?.hasCameraPermission() == true) {
+            cameraHelper?.startCamera()
         }
     }
     
