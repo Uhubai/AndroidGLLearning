@@ -117,6 +117,30 @@ class Day15Renderer(
              1.0f,  1.0f,  1.0f, 1.0f,  // 右上
              1.0f, -1.0f,  1.0f, 0.0f   // 右下
         )
+        
+        /**
+         * 加载着色器
+         *
+         * @param type 着色器类型（GL_VERTEX_SHADER 或 GL_FRAGMENT_SHADER）
+         * @param shaderCode 着色器源代码
+         * @return 着色器 ID，失败返回 0
+         */
+        private fun loadShader(type: Int, shaderCode: String): Int {
+            val shader = GLES20.glCreateShader(type)
+            GLES20.glShaderSource(shader, shaderCode)
+            GLES20.glCompileShader(shader)
+            
+            // 检查编译状态
+            val compiled = IntArray(1)
+            GLES20.glGetShaderiv(shader, GLES20.GL_COMPILE_STATUS, compiled, 0)
+            if (compiled[0] == GLES20.GL_FALSE) {
+                Log.e(TAG, "着色器编译失败: ${GLES20.glGetShaderInfoLog(shader)}")
+                GLES20.glDeleteShader(shader)
+                return 0
+            }
+            
+            return shader
+        }
     }
     
     private var program: Int = 0
@@ -134,6 +158,83 @@ class Day15Renderer(
     private val mvpMatrix = FloatArray(16)
     
     private var surfaceTextureReady: Boolean = false
+    
+    /**
+     * 创建 OES 外部纹理
+     *
+     * 关键差异（与 GL_TEXTURE_2D 相比）：
+     * - 使用 GLES11Ext.GL_TEXTURE_EXTERNAL_OES 而非 GLES20.GL_TEXTURE_2D
+     * - OES 纹理没有固定尺寸，由外部数据（相机）决定
+     * - 不能使用 glTexImage2D() 设置内容（内容由 SurfaceTexture 提供）
+     *
+     * @return 纹理 ID
+     */
+    private fun createOESTexture(): Int {
+        val textureIds = IntArray(1)
+        GLES20.glGenTextures(1, textureIds, 0)
+        
+        val textureId = textureIds[0]
+        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId)
+        
+        // 设置纹理参数
+        // OES 纹理只能使用 GL_LINEAR 或 GL_NEAREST
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR)
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE)
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
+        
+        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, 0)
+        
+        return textureId
+    }
+    
+    /**
+     * 创建 SurfaceTexture
+     *
+     * 重要约束：
+     * - 必须在 GL 线程中调用（onSurfaceCreated 或 onDrawFrame）
+     * - 必须从已创建的 OES 纹理 ID 创建
+     * - SurfaceTexture 将相机帧写入 OES 纹理
+     *
+     * 流程：
+     * 1. 创建 OES 纹理 ID
+     * 2. 从纹理 ID 创建 SurfaceTexture
+     * 3. 设置默认缓冲区大小（预览尺寸）
+     * 4. 设置帧可用监听器
+     * 5. 将 Surface 传给 CameraHelper
+     */
+    private fun createSurfaceTexture() {
+        // 创建 OES 纹理
+        oesTextureId = createOESTexture()
+        if (oesTextureId == 0) {
+            Log.e(TAG, "创建 OES 纹理失败")
+            return
+        }
+        
+        // 从纹理 ID 创建 SurfaceTexture
+        // 这一步连接了相机输出和 OpenGL 纹理
+        surfaceTexture = SurfaceTexture(oesTextureId)
+        
+        // 设置默认缓冲区大小
+        // 预览帧将写入这个大小的缓冲区
+        surfaceTexture?.setDefaultBufferSize(640, 480)
+        
+        // 设置帧可用监听器
+        // 当相机新帧到达时，通知 GLSurfaceView 渲染
+        // 注意：requestRender() 可以在非 GL 线程调用
+        surfaceTexture?.setOnFrameAvailableListener {
+            // 新帧到达，请求渲染
+            // 这会触发 onDrawFrame() 在 GL 线程中执行
+            glSurfaceView.requestRender()
+        }
+        
+        // 将 Surface 传给 CameraHelper
+        // CameraHelper 将其设置为相机预览目标
+        cameraHelper.setPreviewSurface(surfaceTexture!!.surface)
+        
+        surfaceTextureReady = true
+        Log.d(TAG, "SurfaceTexture 已创建")
+    }
     
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         // TODO: 在 Task 7 中实现
