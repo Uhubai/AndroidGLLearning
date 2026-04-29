@@ -111,8 +111,12 @@ class MainActivity : AppCompatActivity() {
             cameraHelper = helper
             checkCameraPermission()
             newGlSurfaceView.setRenderer(Day15Renderer(helper, newGlSurfaceView))
+            // Day 15 使用按需渲染模式（帧到达时触发）
+            newGlSurfaceView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
         } else {
             newGlSurfaceView.setRenderer(createRenderer(day))
+            // Day 1-14 使用连续渲染模式（动画）
+            newGlSurfaceView.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
         }
         
         // 设置新的视图
