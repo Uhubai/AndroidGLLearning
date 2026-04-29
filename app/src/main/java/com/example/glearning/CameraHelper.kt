@@ -21,10 +21,10 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Surface
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 
 class CameraHelper(private val context: Context) {
     
@@ -38,7 +38,7 @@ class CameraHelper(private val context: Context) {
     private var cameraDevice: CameraDevice? = null
     private var captureSession: CameraCaptureSession? = null
     private var previewSurface: Surface? = null
-    private var cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    private var cameraHandler: Handler = Handler(Looper.getMainLooper())
     
     private var isCameraOpened: Boolean = false
     
@@ -164,7 +164,7 @@ class CameraHelper(private val context: Context) {
                     cameraDevice = null
                     isCameraOpened = false
                 }
-            }, cameraExecutor)
+            }, cameraHandler)
         } catch (e: Exception) {
             Log.e(TAG, "打开相机失败: ${e.message}")
         }
@@ -211,7 +211,7 @@ class CameraHelper(private val context: Context) {
                         Log.d(TAG, "CaptureSession 已配置")
                         captureSession = session
                         try {
-                            session.setRepeatingRequest(request, null, cameraExecutor)
+                            session.setRepeatingRequest(request, null, cameraHandler)
                             Log.d(TAG, "预览已启动")
                         } catch (e: Exception) {
                             Log.e(TAG, "设置预览请求失败: ${e.message}")
@@ -222,7 +222,7 @@ class CameraHelper(private val context: Context) {
                         Log.e(TAG, "CaptureSession 配置失败")
                     }
                 },
-                cameraExecutor
+                cameraHandler
             )
         } catch (e: Exception) {
             Log.e(TAG, "创建 CaptureSession 失败: ${e.message}")

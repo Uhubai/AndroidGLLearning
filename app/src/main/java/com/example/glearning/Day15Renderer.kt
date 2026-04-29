@@ -23,6 +23,7 @@ import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.opengl.Matrix
 import android.util.Log
+import android.view.Surface
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -230,7 +231,8 @@ class Day15Renderer(
         
         // 将 Surface 传给 CameraHelper
         // CameraHelper 将其设置为相机预览目标
-        cameraHelper.setPreviewSurface(surfaceTexture!!.surface)
+        // 使用 Surface 构造函数从 SurfaceTexture 创建 Surface
+        cameraHelper.setPreviewSurface(Surface(surfaceTexture!!))
         
         surfaceTextureReady = true
         Log.d(TAG, "SurfaceTexture 已创建")
