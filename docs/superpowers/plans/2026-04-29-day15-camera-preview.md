@@ -430,7 +430,10 @@ import java.nio.FloatBuffer
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
 
-class Day15Renderer(private val cameraHelper: CameraHelper) : GLSurfaceView.Renderer {
+class Day15Renderer(
+    private val cameraHelper: CameraHelper,
+    private val glSurfaceView: GLSurfaceView
+) : GLSurfaceView.Renderer {
     
     companion object {
         private const val TAG = "Day15Renderer"
@@ -666,6 +669,7 @@ git commit -m "feat(day15): 创建 Day15Renderer 类骨架"
         surfaceTexture?.setOnFrameAvailableListener {
             // 新帧到达，请求渲染
             // 这会触发 onDrawFrame() 在 GL 线程中执行
+            glSurfaceView.requestRender()
         }
         
         // 将 Surface 传给 CameraHelper
@@ -866,7 +870,6 @@ import android.opengl.GLSurfaceView
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 
 /**
@@ -886,8 +889,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var glSurfaceView: GLSurfaceView
     private lateinit var cameraHelper: CameraHelper
     
-    companion object {
-        private const val CAMERA_PERMISSION_REQUEST_CODE = 100
+    // 使用 Activity 结果 API 处理权限请求（推荐方式）
+    private val cameraPermissionLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            Toast.makeText(this, "相机权限已授予", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "相机权限被拒绝，无法显示预览", Toast.LENGTH_LONG).show()
+        }
     }
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -900,9 +910,10 @@ class MainActivity : AppCompatActivity() {
         // 创建 CameraHelper
         cameraHelper = CameraHelper(this)
         
-        // 创建 Renderer（传入 CameraHelper）
+        // 创建 Renderer（传入 CameraHelper 和 GLSurfaceView）
         // Renderer 在 onSurfaceCreated 中会创建 SurfaceTexture 并传给 CameraHelper
-        val renderer = Day15Renderer(cameraHelper)
+        // GLSurfaceView 用于在帧到达时触发渲染
+        val renderer = Day15Renderer(cameraHelper, glSurfaceView)
         glSurfaceView.setRenderer(renderer)
         
         setContentView(glSurfaceView)
@@ -915,38 +926,15 @@ class MainActivity : AppCompatActivity() {
      * 检查相机权限
      *
      * 如果有权限，相机将在 onResume 时启动
-     * 如果无权限，请求权限
+     * 如果无权限，使用 Activity 结果 API 请求权限
      */
     private fun checkCameraPermission() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             == PackageManager.PERMISSION_GRANTED) {
             // 已有权限
         } else {
-            // 请求权限
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.CAMERA),
-                CAMERA_PERMISSION_REQUEST_CODE
-            )
-        }
-    }
-    
-    /**
-     * 权限请求结果回调
-     */
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        
-        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "相机权限已授予", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "相机权限被拒绝，无法显示预览", Toast.LENGTH_LONG).show()
-            }
+            // 使用 Activity 结果 API 请求权限（推荐方式）
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
     
@@ -1154,21 +1142,37 @@ git commit -m "docs(day15): Day 15 学习笔记"
 
 - [ ] **Step 1: 更新进度跟踪表**
 
-在 spec.md 的进度跟踪部分添加 Day 15：
+先读取 spec.md 确认当前结构：
 
-```markdown
-| 第 3 周 | 相机纹理与基础滤镜 | 🔄 Day 15 进行中 |
+```bash
+cat openspec/specs/learning-plan/spec.md | head -250
 ```
 
-在实际学习进度表中添加：
+然后进行以下修改：
 
-```markdown
+**Step 1a: 修改第 3 周状态**
+找到进度跟踪表中的第 3 周行（约 line 208），将：
+```
+| 第 3 周 | 相机纹理与基础滤镜 | ⬜ 未开始 |
+```
+替换为：
+```
+| 第 3 周 | 相机纹理与基础滤镜 | ✅ Day 15 完成 |
+```
+
+**Step 1b: 在实际学习进度表添加 Day 15**
+找到实际学习进度表的最后一行（Day 13-14，约 line 231），在其后添加新行：
+```
 | Day 15 | 相机预览到 GLSurfaceView | SurfaceTexture + OES 纹理 | ✅ |
 ```
 
-并更新下一步：
-
-```markdown
+**Step 1c: 更新下一步指引**
+找到"下一步"部分（约 line 233），将：
+```
+**下一步**：进入第 3 周 - Day 15 相机纹理（SurfaceTexture + 外部纹理）
+```
+替换为：
+```
 **下一步**：进入 Day 16 - 基础滤镜（亮度/对比度/饱和度）
 ```
 
@@ -1191,7 +1195,25 @@ git commit -m "docs(day15): 更新学习进度 - Day 15 完成"
 
 预期输出：`BUILD SUCCESSFUL`
 
-- [ ] **Step 2: 提交所有更改**
+- [ ] **Step 2: 安装并运行应用**
+
+```bash
+./gradlew installDebug
+```
+
+手动启动应用，观察以下预期行为：
+- 应用启动后应请求相机权限（如果未授予）
+- 权限授予后应显示相机实时预览画面
+- 画面应正确显示（无旋转、拉伸、黑屏）
+- 暂停应用时相机预览应停止
+- 恢复应用时相机预览应重启
+
+如果画面显示不正确，检查：
+- Logcat 中的 Day15Renderer 和 CameraHelper 日志
+- 是否有 OpenGL 错误
+- 是否有相机打开失败的消息
+
+- [ ] **Step 3: 提交所有更改**
 
 ```bash
 git status
