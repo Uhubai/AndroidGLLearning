@@ -1,31 +1,32 @@
+/**
+ * MainActivity: 渲染器选择 + 生命周期管理
+ *
+ * 支持选择任意 Day 的渲染器进行复习：
+ * - Day 1-14：普通渲染器，直接选择使用
+ * - Day 15：相机渲染器，需要相机权限和 CameraHelper
+ *
+ * 启动时显示选择菜单，点击菜单按钮可切换渲染器
+ */
 package com.example.glearning
 
 import android.Manifest
 import android.content.pm.PackageManager
 import android.opengl.GLSurfaceView
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 
-/**
- * MainActivity: 权限请求 + 生命周期管理
- *
- * 关键流程：
- * 1. onCreate: 检查权限 + 创建 GLSurfaceView + 创建 CameraHelper + 创建 Renderer
- * 2. onResume: glSurfaceView.onResume() + cameraHelper.startCamera()
- * 3. onPause: cameraHelper.stopCamera() + glSurfaceView.onPause()
- *
- * 数据传递方向：
- * - Renderer.onSurfaceCreated() 创建 SurfaceTexture → 将其 Surface 传给 CameraHelper
- * - CameraHelper.setPreviewSurface(surface) 接收 Surface → 用于相机预览
- */
 class MainActivity : AppCompatActivity() {
     
-    private lateinit var glSurfaceView: GLSurfaceView
-    private lateinit var cameraHelper: CameraHelper
+    private var glSurfaceView: GLSurfaceView? = null
+    private var cameraHelper: CameraHelper? = null
+    private var currentDay: Int = 14
+    private var isInitialized: Boolean = false
     
-    // 使用 Activity 结果 API 处理权限请求（推荐方式）
     private val cameraPermissionLauncher = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -39,57 +40,136 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // 创建 GLSurfaceView
-        glSurfaceView = GLSurfaceView(this)
-        glSurfaceView.setEGLContextClientVersion(2)
+        // 先设置默认渲染器，确保界面正常显示
+        setupRenderer(currentDay)
         
-        // 创建 CameraHelper
-        cameraHelper = CameraHelper(this)
-        
-        // 创建 Renderer（传入 CameraHelper 和 GLSurfaceView）
-        // Renderer 在 onSurfaceCreated 中会创建 SurfaceTexture 并传给 CameraHelper
-        // GLSurfaceView 用于在帧到达时触发渲染
-        val renderer = Day15Renderer(cameraHelper, glSurfaceView)
-        glSurfaceView.setRenderer(renderer)
-        
-        setContentView(glSurfaceView)
-        
-        // 检查相机权限
-        checkCameraPermission()
+        // 显示选择菜单
+        showRendererSelector()
     }
     
-    /**
-     * 检查相机权限
-     *
-     * 如果有权限，相机将在 onResume 时启动
-     * 如果无权限，使用 Activity 结果 API 请求权限
-     */
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.main_menu, menu)
+        return true
+    }
+    
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == R.id.menu_select_renderer) {
+            showRendererSelector()
+            return true
+        }
+        return super.onOptionsItemSelected(item)
+    }
+    
+    private fun showRendererSelector() {
+        val days = arrayOf(
+            "Day 1: 纯色背景",
+            "Day 2: 三角形",
+            "Day 3: VBO + 索引缓冲",
+            "Day 4: 正交投影",
+            "Day 5: 平移动画",
+            "Day 6-7: 五角星动画",
+            "Day 8: 旋转矩阵",
+            "Day 9: MVP 矩阵组合",
+            "Day 10: 纹理基础",
+            "Day 11: 纹理变换",
+            "Day 12: 纹理混合",
+            "Day 13: 复习 - 变换",
+            "Day 14: 复习 - 综合",
+            "Day 15: 相机预览"
+        )
+        
+        AlertDialog.Builder(this)
+            .setTitle("选择渲染器 (当前: Day $currentDay)")
+            .setItems(days) { _, which ->
+                val newDay = which + 1
+                if (newDay != currentDay) {
+                    currentDay = newDay
+                    // 切换渲染器需要重新创建 GLSurfaceView
+                    setupRenderer(currentDay)
+                    Toast.makeText(this, "已切换到 Day $currentDay", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("关闭", null)
+            .show()
+    }
+    
+    private fun setupRenderer(day: Int) {
+        // 先清理旧的相机资源
+        cameraHelper?.stopCamera()
+        cameraHelper = null
+        
+        // 先暂停旧的 GLSurfaceView
+        glSurfaceView?.onPause()
+        
+        // 创建新的 GLSurfaceView
+        val newGlSurfaceView = GLSurfaceView(this)
+        newGlSurfaceView.setEGLContextClientVersion(2)
+        
+        // 创建对应的渲染器
+        if (day == 15) {
+            val helper = CameraHelper(this)
+            cameraHelper = helper
+            checkCameraPermission()
+            newGlSurfaceView.setRenderer(Day15Renderer(helper, newGlSurfaceView))
+        } else {
+            newGlSurfaceView.setRenderer(createRenderer(day))
+        }
+        
+        // 设置新的视图
+        setContentView(newGlSurfaceView)
+        glSurfaceView = newGlSurfaceView
+        isInitialized = true
+        
+        // 如果已经在 onResume 状态，需要调用 onResume
+        newGlSurfaceView.onResume()
+        
+        // 启动相机（如果是 Day 15）
+        if (day == 15 && cameraHelper?.hasCameraPermission() == true) {
+            cameraHelper?.startCamera()
+        }
+    }
+    
+    private fun createRenderer(day: Int): GLSurfaceView.Renderer {
+        return when (day) {
+            1 -> Day1Renderer()
+            2 -> Day2Renderer()
+            3 -> Day3Renderer()
+            4 -> Day4Renderer()
+            5 -> Day5Renderer()
+            6, 7 -> Day7Renderer()
+            8 -> Day8Renderer()
+            9 -> Day9Renderer()
+            10 -> Day10Renderer()
+            11 -> Day11Renderer()
+            12 -> Day12Renderer()
+            13 -> Day13Renderer()
+            14 -> Day14Renderer()
+            else -> Day14Renderer()
+        }
+    }
+    
     private fun checkCameraPermission() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-            == PackageManager.PERMISSION_GRANTED) {
-            // 已有权限
-        } else {
-            // 使用 Activity 结果 API 请求权限（推荐方式）
+            != PackageManager.PERMISSION_GRANTED) {
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
     
     override fun onResume() {
         super.onResume()
-        glSurfaceView.onResume()
-        
-        // 启动相机
-        // 注意：此时 Renderer.onSurfaceCreated() 已执行
-        // SurfaceTexture 已创建并传给 CameraHelper
-        if (cameraHelper.hasCameraPermission()) {
-            cameraHelper.startCamera()
+        if (isInitialized) {
+            glSurfaceView?.onResume()
+            if (currentDay == 15 && cameraHelper?.hasCameraPermission() == true) {
+                cameraHelper?.startCamera()
+            }
         }
     }
     
     override fun onPause() {
         super.onPause()
-        // 停止相机（先停止相机，再暂停 GLSurfaceView）
-        cameraHelper.stopCamera()
-        glSurfaceView.onPause()
+        if (currentDay == 15) {
+            cameraHelper?.stopCamera()
+        }
+        glSurfaceView?.onPause()
     }
 }
