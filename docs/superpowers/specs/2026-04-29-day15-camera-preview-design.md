@@ -19,23 +19,29 @@
 │  - 协调生命周期                                              │
 └─────────────────────────────────────────────────────────────┘
           │                              │
-          │ SurfaceTexture               │ setRenderer
+          │ Surface (from SurfaceTexture)│ setRenderer
           ▼                              ▼
 ┌──────────────────────┐       ┌──────────────────────┐
 │    CameraHelper      │       │    Day15Renderer     │
 ├──────────────────────┤       ├──────────────────────┤
 │ CameraManager        │       │ OES 纹理 ID          │
-│ CameraDevice         │       │ SurfaceTexture 引用  │
-│ CaptureSession       │──────▶│ OES 着色器程序       │
-│ SurfaceTexture       │       │ MVP 矩阵             │
+│ CameraDevice         │◀──────│ SurfaceTexture       │
+│ CaptureSession       │       │ OES 着色器程序       │
+│ Preview Surface      │       │ MVP 矩阵             │
 │                      │       │ 渲染循环              │
 └──────────────────────┘       └──────────────────────┘
 ```
 
 **关键数据流**：
-1. CameraHelper 创建 SurfaceTexture 并传给 Day15Renderer
-2. 相机帧到达 → SurfaceTexture 通知 → Day15Renderer 更新纹理 → requestRender()
-3. GL 线程执行 `onDrawFrame()`：`updateTexImage()` → 渲染 OES 纹理到屏幕
+1. Day15Renderer 在 GL 线程中创建 OES 纹理 → 创建 SurfaceTexture → 将其 Surface 传给 CameraHelper
+2. CameraHelper 将 Surface 设为相机预览目标 → 相机帧写入 SurfaceTexture
+3. 相机帧到达 → SurfaceTexture 通知 → Day15Renderer.requestRender()
+4. GL 线程执行 `onDrawFrame()`：`updateTexImage()` → 渲染 OES 纹理到屏幕
+
+**重要约束**：
+- SurfaceTexture 必须在 GL 线程中从 OES 纹理 ID 创建
+- CameraHelper 不能在非 GL 线程创建 SurfaceTexture
+- 数据传递方向：Renderer → CameraHelper（不是反向）
 
 ---
 
@@ -43,30 +49,35 @@
 
 ### 职责
 
-封装 Camera2 预览配置，提供 SurfaceTexture 给渲染器。
+封装 Camera2 预览配置，接收来自 Renderer 的 Surface 作为相机预览目标。
+
+**注意**：CameraHelper 不创建 SurfaceTexture，而是接收从 SurfaceTexture 获取的 Surface。
 
 ### 核心方法
 
 | 方法 | 功能 |
 |------|------|
-| `startCamera(width, height)` | 打开相机，配置预览尺寸，启动预览 |
+| `setPreviewSurface(surface)` | 接收相机预览 Surface（从 SurfaceTexture 获取） |
+| `startCamera()` | 打开相机，启动预览（使用已设置的 Surface） |
 | `stopCamera()` | 关闭相机设备，释放资源 |
-| `getSurfaceTexture()` | 返回 SurfaceTexture 给 Day15Renderer |
-| `setOnFrameAvailableListener()` | 设置帧可用回调（由 Renderer 调用） |
+| `onCameraOpened()` | 回调通知相机已打开（可选） |
 
 ### Camera2 配置简化
 
 - 使用第一个后置摄像头
-- 预览尺寸选择：优先匹配传入尺寸，否则选择最接近的
+- 预览尺寸：由 Renderer 设置 SurfaceTexture 的默认缓冲区大小
 - 不处理闪光灯、HDR 等高级功能
 
 ### 关键流程
 
 ```
+setPreviewSurface(surface)
+  → 保存 Surface 引用
+
 startCamera()
   → cameraManager.openCamera()
   → cameraDevice.createCaptureRequest(TEMPLATE_PREVIEW)
-  → surfaceTexture.setDefaultBufferSize()
+  → captureRequest.addTarget(savedSurface)
   → captureSession.setRepeatingRequest()
 ```
 
@@ -119,17 +130,41 @@ void main() {
 
 ### 纹理创建与更新流程
 
+**onSurfaceCreated()（GL 线程）**：
 ```
-onSurfaceCreated()
-  → glGenTextures() + glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES)
-  → 设置纹理参数（GL_LINEAR 等）
-  
-onDrawFrame()
-  → surfaceTexture.updateTexImage()  // 从相机获取最新帧
-  → surfaceTexture.getTransformMatrix()  // 获取变换矩阵
-  → glUniformMatrix4fv(u_TextureTransform)
-  → glDrawElements()
+1. 创建 OES 纹理 ID
+   → glGenTextures() 
+   → glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES)
+   → 设置纹理参数（GL_LINEAR 等）
+
+2. 从纹理 ID 创建 SurfaceTexture
+   → surfaceTexture = SurfaceTexture(textureId)
+   → surfaceTexture.setDefaultBufferSize(640, 480)  // 预览尺寸
+
+3. 设置帧可用监听器
+   → surfaceTexture.setOnFrameAvailableListener { requestRender() }
+
+4. 将 Surface 传给 CameraHelper
+   → cameraHelper.setPreviewSurface(surfaceTexture.surface)
 ```
+
+**onDrawFrame()（GL 线程）**：
+```
+1. 更新纹理内容
+   → surfaceTexture.updateTexImage()  // 从相机获取最新帧
+
+2. 获取变换矩阵
+   → surfaceTexture.getTransformMatrix(textureTransformMatrix)
+
+3. 渲染到屏幕
+   → glUniformMatrix4fv(u_TextureTransform)
+   → glDrawElements()
+```
+
+**关键约束**：
+- `SurfaceTexture(textureId)` 必须在 GL 线程中调用
+- `updateTexImage()` 必须在 GL 线程中调用
+- `getTransformMatrix()` 获取的是 4x4 矩阵，用于校正 UV 坐标
 
 ---
 
@@ -164,16 +199,21 @@ onCreate()
   → 检查相机权限
   → 创建 GLSurfaceView
   → 创建 CameraHelper
-  → renderer.setCameraHelper(cameraHelper)
+  → 创建 Day15Renderer(cameraHelper)  // 将 CameraHelper 传给 Renderer
+  → glSurfaceView.setRenderer(renderer)
   
 onResume()
   → glSurfaceView.onResume()
-  → cameraHelper.startCamera()
+  → cameraHelper.startCamera()  // Renderer 已将 Surface 传给 CameraHelper
 
 onPause()
   → cameraHelper.stopCamera()
   → glSurfaceView.onPause()
 ```
+
+**数据传递方向**：
+- Renderer.onSurfaceCreated() 创建 SurfaceTexture → 将其 Surface 传给 CameraHelper
+- CameraHelper.setPreviewSurface(surface) 接收 Surface → 用于相机预览
 
 ### 权限处理
 
