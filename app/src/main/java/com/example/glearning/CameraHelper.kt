@@ -92,7 +92,19 @@ class CameraHelper(private val context: Context) {
      * 3. 清理资源
      */
     fun stopCamera() {
-        // TODO: 实现相机停止
+        try {
+            captureSession?.stopRepeating()
+            captureSession?.close()
+            captureSession = null
+            
+            cameraDevice?.close()
+            cameraDevice = null
+            
+            isCameraOpened = false
+            Log.d(TAG, "相机已停止")
+        } catch (e: Exception) {
+            Log.e(TAG, "停止相机失败: ${e.message}")
+        }
     }
     
     /**
@@ -159,10 +171,61 @@ class CameraHelper(private val context: Context) {
     }
     
     /**
-     * 启动预览（内部方法）
-     * 在 openCamera 成功后调用
+     * 创建预览 CaptureRequest
+     *
+     * 使用 TEMPLATE_PREVIEW 模板创建基础请求
+     * 将 Surface 添加为预览目标
+     */
+    private fun createPreviewRequest(): CaptureRequest? {
+        val device = cameraDevice ?: return null
+        val surface = previewSurface ?: return null
+        
+        try {
+            val builder = device.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW)
+            builder.addTarget(surface)
+            return builder.build()
+        } catch (e: Exception) {
+            Log.e(TAG, "创建预览请求失败: ${e.message}")
+            return null
+        }
+    }
+    
+    /**
+     * 启动预览
+     *
+     * 流程：
+     * 1. 创建 CaptureRequest
+     * 2. 创建 CaptureSession
+     * 3. 设置连续预览请求
      */
     private fun startPreview() {
-        // TODO: 在 Task 4 中实现
+        val device = cameraDevice ?: return
+        val surface = previewSurface ?: return
+        val request = createPreviewRequest() ?: return
+        
+        try {
+            device.createCaptureSession(
+                listOf(surface),
+                object : CameraCaptureSession.StateCallback() {
+                    override fun onConfigured(session: CameraCaptureSession) {
+                        Log.d(TAG, "CaptureSession 已配置")
+                        captureSession = session
+                        try {
+                            session.setRepeatingRequest(request, null, cameraExecutor)
+                            Log.d(TAG, "预览已启动")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "设置预览请求失败: ${e.message}")
+                        }
+                    }
+                    
+                    override fun onConfigureFailed(session: CameraCaptureSession) {
+                        Log.e(TAG, "CaptureSession 配置失败")
+                    }
+                },
+                cameraExecutor
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "创建 CaptureSession 失败: ${e.message}")
+        }
     }
 }
