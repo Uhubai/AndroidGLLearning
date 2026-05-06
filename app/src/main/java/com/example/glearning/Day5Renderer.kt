@@ -30,6 +30,7 @@ class Day5Renderer : GLSurfaceView.Renderer {
         private const val COLORS_PER_VERTEX = 3   // 每个顶点有 3 个颜色分量 (r, g, b)
         private const val FLOAT_SIZE = 4          // Float 类型占用 4 字节
         private const val SHORT_SIZE = 2          // Short 类型占用 2 字节
+        private const val WORLD_HALF_SIZE = 100f  // 世界坐标系半边长：顶点范围为 [-100, 100]
         
         /**
          * 顶点着色器代码
@@ -209,25 +210,26 @@ class Day5Renderer : GLSurfaceView.Renderer {
         
         // 根据宽高比创建正交投影矩阵
         // 目标：无论屏幕宽窄，图形都能正确显示不变形
+        // 关键：投影边界必须与世界坐标同量级（本例顶点范围是 ±100）
         
         if (aspectRatio > 1f) {
             // 横屏模式：宽度大于高度
-            // 扩展左右范围，保持上下为 [-1, 1]
-            // 例如：宽高比 16:9 = 1.78，则左右范围为 [-1.78, 1.78]
+            // 扩展左右范围，保持上下为 [-WORLD_HALF_SIZE, WORLD_HALF_SIZE]
+            // 例如：宽高比 16:9 = 1.78，则左右范围为 [-178, 178]
             android.opengl.Matrix.orthoM(
                 projectionMatrix, 0,
-                -aspectRatio, aspectRatio,  // 左右边界
-                -1f, 1f,                    // 上下边界
+                -aspectRatio * WORLD_HALF_SIZE, aspectRatio * WORLD_HALF_SIZE,  // 左右边界
+                -WORLD_HALF_SIZE, WORLD_HALF_SIZE,                               // 上下边界
                 -1f, 1f                     // 近远边界
             )
         } else {
             // 竖屏模式：高度大于宽度
-            // 扩展上下范围，保持左右为 [-1, 1]
-            // 例如：宽高比 9:16 = 0.56，则上下范围为 [-1.78, 1.78]
+            // 扩展上下范围，保持左右为 [-WORLD_HALF_SIZE, WORLD_HALF_SIZE]
+            // 例如：宽高比 9:16 = 0.56，则上下范围为 [-178, 178]
             android.opengl.Matrix.orthoM(
                 projectionMatrix, 0,
-                -1f, 1f,                        // 左右边界
-                -1f / aspectRatio, 1f / aspectRatio,  // 上下边界
+                -WORLD_HALF_SIZE, WORLD_HALF_SIZE,                                    // 左右边界
+                -WORLD_HALF_SIZE / aspectRatio, WORLD_HALF_SIZE / aspectRatio,        // 上下边界
                 -1f, 1f                         // 近远边界
             )
         }

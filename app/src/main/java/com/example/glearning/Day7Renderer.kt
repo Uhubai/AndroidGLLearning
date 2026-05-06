@@ -35,6 +35,7 @@ class Day7Renderer : GLSurfaceView.Renderer {
         private const val COLORS_PER_VERTEX = 3   // 每个顶点有 3 个颜色分量 (r, g, b)
         private const val FLOAT_SIZE = 4          // Float 类型占用 4 字节
         private const val SHORT_SIZE = 2          // Short 类型占用 2 字节
+        private const val WORLD_HALF_SIZE = 150f  // 视野半边长：覆盖五角星缩放和平移动画范围
         
         /**
          * 顶点着色器代码
@@ -255,20 +256,22 @@ class Day7Renderer : GLSurfaceView.Renderer {
         val aspectRatio = width.toFloat() / height.toFloat()
         
         // 创建正交投影矩阵（屏幕适配）
+        // 关键：投影边界必须与模型坐标同量级，否则图形会被裁剪
+        // 本例五角星外半径 80，且存在缩放+平移，因此使用 ±150 作为基础可视范围
         if (aspectRatio > 1f) {
             // 橫屏模式：扩展左右范围
             android.opengl.Matrix.orthoM(
                 projectionMatrix, 0,
-                -aspectRatio, aspectRatio,
-                -1f, 1f,
+                -aspectRatio * WORLD_HALF_SIZE, aspectRatio * WORLD_HALF_SIZE,
+                -WORLD_HALF_SIZE, WORLD_HALF_SIZE,
                 -1f, 1f
             )
         } else {
             // 竖屏模式：扩展上下范围
             android.opengl.Matrix.orthoM(
                 projectionMatrix, 0,
-                -1f, 1f,
-                -1f / aspectRatio, 1f / aspectRatio,
+                -WORLD_HALF_SIZE, WORLD_HALF_SIZE,
+                -WORLD_HALF_SIZE / aspectRatio, WORLD_HALF_SIZE / aspectRatio,
                 -1f, 1f
             )
         }

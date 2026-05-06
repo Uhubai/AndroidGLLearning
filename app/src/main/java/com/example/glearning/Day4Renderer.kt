@@ -38,6 +38,7 @@ class Day4Renderer : GLSurfaceView.Renderer {
         private const val COLORS_PER_VERTEX = 3   // 每个顶点有 3 个颜色分量 (r, g, b)
         private const val FLOAT_SIZE = 4          // Float 类型占用 4 字节
         private const val SHORT_SIZE = 2          // Short 类型占用 2 字节
+        private const val WORLD_HALF_SIZE = 100f  // 世界坐标系半边长：矩形坐标范围为 [-100, 100]
         
         /**
          * 顶点着色器代码
@@ -194,30 +195,32 @@ class Day4Renderer : GLSurfaceView.Renderer {
         // 创建正交投影矩阵
         // orthoM(matrix, offset, left, right, bottom, top, near, far)
         //
-        // 屏幕适配逻辑：
-        // - 横屏（aspectRatio > 1）：宽度更大，扩展左右范围
-        // - 竖屏（aspectRatio < 1）：高度更大，扩展上下范围
+        // 屏幕适配逻辑（关键点）：
+        // - 顶点坐标使用的是世界坐标范围 [-100, 100]
+        // - 投影边界必须和世界坐标使用同一量级，否则图形会被裁剪
+        // - 横屏（aspectRatio > 1）：扩展左右范围
+        // - 竖屏（aspectRatio < 1）：扩展上下范围
         
         if (aspectRatio > 1f) {
             // 橫屏模式：宽 > 高
-            // 固定上下范围为 [-1, 1]
+            // 固定上下范围为 [-WORLD_HALF_SIZE, WORLD_HALF_SIZE]
             // 扩展左右范围以匹配宽高比
-            // 例如：16:9 屏幕，左右范围为 [-1.78, 1.78]
+            // 例如：16:9 屏幕，左右范围为 [-177.8, 177.8]
             android.opengl.Matrix.orthoM(
                 projectionMatrix, 0,
-                -aspectRatio, aspectRatio,  // 左右边界：±宽高比
-                -1f, 1f,                    // 上下边界：固定 ±1
+                -aspectRatio * WORLD_HALF_SIZE, aspectRatio * WORLD_HALF_SIZE,  // 左右边界：±(宽高比 × 基准尺寸)
+                -WORLD_HALF_SIZE, WORLD_HALF_SIZE,                               // 上下边界：固定 ±100
                 -1f, 1f                     // 近远边界
             )
         } else {
             // 竖屏模式：高 > 宽
-            // 固定左右范围为 [-1, 1]
+            // 固定左右范围为 [-WORLD_HALF_SIZE, WORLD_HALF_SIZE]
             // 扩展上下范围以匹配宽高比
-            // 例如：9:16 屏幕，上下范围为 [-1.78, 1.78]
+            // 例如：9:16 屏幕，上下范围为 [-177.8, 177.8]
             android.opengl.Matrix.orthoM(
                 projectionMatrix, 0,
-                -1f, 1f,                        // 左右边界：固定 ±1
-                -1f / aspectRatio, 1f / aspectRatio,  // 上下边界：±1/宽高比
+                -WORLD_HALF_SIZE, WORLD_HALF_SIZE,                                    // 左右边界：固定 ±100
+                -WORLD_HALF_SIZE / aspectRatio, WORLD_HALF_SIZE / aspectRatio,        // 上下边界：±(100/宽高比)
                 -1f, 1f                         // 近远边界
             )
         }

@@ -114,6 +114,67 @@ class TriangleRenderer : GLSurfaceView.Renderer {
 - 使用工具类封装 OpenGL 操作
 - 检查所有 GL 操作的错误
 
+#### 正交投影矩阵统一规范（重要）
+
+为避免“图形被裁剪 / 变形 / 看不见”的常见问题，所有使用 `Matrix.orthoM` 的渲染器必须遵循以下规则。
+
+1. **世界坐标与投影边界同量级**
+   - 若顶点使用 `[-100, 100]`，投影边界不能仍是 `[-1, 1]`
+   - 推荐在 `companion object` 定义 `WORLD_HALF_SIZE`（如 `100f`、`150f`）
+2. **屏幕适配公式统一**
+   - `aspectRatio = width.toFloat() / height.toFloat()`
+   - 横屏（`aspectRatio > 1`）：
+     - `left/right = ±(aspectRatio * WORLD_HALF_SIZE)`
+     - `bottom/top = ±WORLD_HALF_SIZE`
+   - 竖屏（`aspectRatio <= 1`）：
+     - `left/right = ±WORLD_HALF_SIZE`
+     - `bottom/top = ±(WORLD_HALF_SIZE / aspectRatio)`
+3. **范围基准要覆盖动画**
+   - 若存在平移、缩放、旋转，`WORLD_HALF_SIZE` 需覆盖“静态几何范围 + 动画位移峰值”
+   - 不够时会在动画过程中被裁剪
+4. **注释必须解释“为什么”**
+   - 说明世界坐标范围
+   - 说明 `WORLD_HALF_SIZE` 的取值依据
+   - 说明横竖屏边界为何这样计算
+
+#### 正交投影矩阵标准模板
+
+```kotlin
+companion object {
+    // 世界坐标基准半边长：需与顶点和动画范围匹配
+    private const val WORLD_HALF_SIZE = 100f
+}
+
+override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
+    GLES20.glViewport(0, 0, width, height)
+    val aspectRatio = width.toFloat() / height.toFloat()
+
+    if (aspectRatio > 1f) {
+        Matrix.orthoM(
+            projectionMatrix, 0,
+            -aspectRatio * WORLD_HALF_SIZE, aspectRatio * WORLD_HALF_SIZE,
+            -WORLD_HALF_SIZE, WORLD_HALF_SIZE,
+            -1f, 1f
+        )
+    } else {
+        Matrix.orthoM(
+            projectionMatrix, 0,
+            -WORLD_HALF_SIZE, WORLD_HALF_SIZE,
+            -WORLD_HALF_SIZE / aspectRatio, WORLD_HALF_SIZE / aspectRatio,
+            -1f, 1f
+        )
+    }
+}
+```
+
+#### 禁止写法（反例）
+
+当顶点使用像素级/世界级坐标（如 `±100`、`±150`）时，禁止继续使用以下边界：
+
+```kotlin
+Matrix.orthoM(projectionMatrix, 0, -aspectRatio, aspectRatio, -1f, 1f, -1f, 1f)
+```
+
 ```kotlin
 object GLUtils {
     fun loadShader(type: Int, shaderCode: String): Int {
