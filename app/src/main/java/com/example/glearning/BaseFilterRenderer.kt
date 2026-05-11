@@ -383,12 +383,9 @@ abstract class BaseFilterRenderer : GLSurfaceView.Renderer {
         vertexBuffer?.put(FULL_SCREEN_RECT)
         vertexBuffer?.position(0)
         
-        // 步骤 9：根据模式创建纹理
-        if (useCameraTexture) {
-            setupOESTexture(glSurfaceView = glSurfaceView as GLSurfaceView)
-        } else {
-            textureId[0] = createProceduralTexture()
-        }
+        // 步骤 9：创建程序化纹理（默认模式）
+        // 注意：OES 相机纹理需要 GLSurfaceView 引用，由子类（如 Day15Renderer）自行处理
+        textureId[0] = createProceduralTexture()
         
         // 步骤 10：初始化矩阵
         Matrix.setIdentityM(modelMatrix, 0)
