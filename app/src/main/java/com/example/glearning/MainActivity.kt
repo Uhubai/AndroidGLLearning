@@ -75,7 +75,12 @@ class MainActivity : AppCompatActivity() {
             "Day 13: 复习 - 变换",
             "Day 14: 复习 - 综合",
             "Day 15: 相机预览",
-            "Day 16: 亮度/对比度/饱和度"
+            "Day 16: 亮度/对比度/饱和度",
+            "Day 17: 灰度/反色/Sepia",
+            "Day 18: 色调/色温",
+            "Day 19: 滤镜管理器",
+            "Day 20: OpenGL UI 控件",
+            "Day 21: 扩展 UI 控件"
         )
         
         AlertDialog.Builder(this)
@@ -147,6 +152,11 @@ class MainActivity : AppCompatActivity() {
             14 -> Day14Renderer()
             15 -> Day15Renderer(cameraHelper ?: CameraHelper(this), glSurfaceView)
             16 -> Day16Renderer()
+            17 -> Day17Renderer()
+            18 -> Day18Renderer()
+            19 -> Day19Renderer()
+            20 -> Day20Renderer()
+            21 -> Day21Renderer()
             else -> Day14Renderer()
         }
     }
