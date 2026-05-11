@@ -74,7 +74,8 @@ class MainActivity : AppCompatActivity() {
             "Day 12: 纹理混合",
             "Day 13: 复习 - 变换",
             "Day 14: 复习 - 综合",
-            "Day 15: 相机预览"
+            "Day 15: 相机预览",
+            "Day 16: 亮度/对比度/饱和度"
         )
         
         AlertDialog.Builder(this)
@@ -112,7 +113,7 @@ class MainActivity : AppCompatActivity() {
             newGlSurfaceView.setRenderer(Day15Renderer(helper, newGlSurfaceView))
             newGlSurfaceView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
         } else {
-            newGlSurfaceView.setRenderer(createRenderer(day))
+            newGlSurfaceView.setRenderer(createRenderer(day, newGlSurfaceView))
             newGlSurfaceView.renderMode = GLSurfaceView.RENDERMODE_CONTINUOUSLY
         }
         
@@ -129,7 +130,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    private fun createRenderer(day: Int): GLSurfaceView.Renderer {
+    private fun createRenderer(day: Int, glSurfaceView: GLSurfaceView): GLSurfaceView.Renderer {
         return when (day) {
             1 -> Day1Renderer()
             2 -> Day2Renderer()
@@ -144,6 +145,8 @@ class MainActivity : AppCompatActivity() {
             12 -> Day12Renderer()
             13 -> Day13Renderer()
             14 -> Day14Renderer()
+            15 -> Day15Renderer(cameraHelper ?: CameraHelper(this), glSurfaceView)
+            16 -> Day16Renderer()
             else -> Day14Renderer()
         }
     }
