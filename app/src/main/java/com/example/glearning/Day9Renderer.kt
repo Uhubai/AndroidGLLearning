@@ -204,15 +204,16 @@ class Day9Renderer : GLSurfaceView.Renderer {
         val aspectRatio = width.toFloat() / height.toFloat()
         
         // 创建正交投影矩阵（屏幕适配）
-        // 注意：near/far 范围必须包含相机到物体的距离
-        // 相机在 Z=3，物体在 Z=0，所以 near/far 至少需要 [-5, 5]
+        // 注意：near/far 必须是正值，表示到相机的距离
+        // 相机在 Z=3，物体在 Z=0，距离是 3 个单位
+        // 所以 near < 3 < far，例如 near=1, far=10
         if (aspectRatio > 1f) {
             // 横屏模式：扩展左右范围
             Matrix.orthoM(
                 projectionMatrix, 0,
                 -aspectRatio * 100f, aspectRatio * 100f,  // left, right（范围 0-200）
                 -100f, 100f,                               // bottom, top
-                -10f, 10f                                  // near, far（包含相机距离）
+                1f, 10f                                    // near, far（正值，包含距离 3）
             )
         } else {
             // 竖屏模式：扩展上下范围
@@ -220,7 +221,7 @@ class Day9Renderer : GLSurfaceView.Renderer {
                 projectionMatrix, 0,
                 -100f, 100f,                               // left, right
                 -100f / aspectRatio, 100f / aspectRatio,   // bottom, top（范围 0-200）
-                -10f, 10f                                  // near, far（包含相机距离）
+                1f, 10f                                    // near, far（正值，包含距离 3）
             )
         }
     }
