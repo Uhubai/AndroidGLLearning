@@ -60,33 +60,37 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun showRendererSelector() {
-        val days = arrayOf(
-            "Day 1: 纯色背景",
-            "Day 2: 三角形",
-            "Day 3: VBO + 索引缓冲",
-            "Day 4: 正交投影",
-            "Day 5: 平移动画",
-            "Day 6-7: 五角星动画",
-            "Day 8: 旋转矩阵",
-            "Day 9: MVP 矩阵组合",
-            "Day 10: 纹理基础",
-            "Day 11: 纹理变换",
-            "Day 12: 纹理混合",
-            "Day 13: 复习 - 变换",
-            "Day 14: 复习 - 综合",
-            "Day 15: 相机预览",
-            "Day 16: 亮度/对比度/饱和度",
-            "Day 17: 灰度/反色/Sepia",
-            "Day 18: 色调/色温",
-            "Day 19: 滤镜管理器",
-            "Day 20: OpenGL UI 控件",
-            "Day 21: 扩展 UI 控件"
+        // 渲染器列表：每个项对应实际的 Day 数字
+        // 注意：Day 6 和 Day 7 合并为 "Day 6-7"，但索引仍然按 Day 数字排列
+        val rendererMap = listOf(
+            1 to "Day 1: 纯色背景",
+            2 to "Day 2: 三角形",
+            3 to "Day 3: VBO + 索引缓冲",
+            4 to "Day 4: 正交投影",
+            5 to "Day 5: 平移动画",
+            7 to "Day 6-7: 五角星动画",  // Day 6 不存在，使用 Day7Renderer
+            8 to "Day 8: 旋转矩阵",
+            9 to "Day 9: MVP 矩阵组合",
+            10 to "Day 10: 纹理基础",
+            11 to "Day 11: 纹理变换",
+            12 to "Day 12: 纹理混合",
+            13 to "Day 13: 复习 - 变换",
+            14 to "Day 14: 复习 - 综合",
+            15 to "Day 15: 相机预览",
+            16 to "Day 16: 亮度/对比度/饱和度",
+            17 to "Day 17: 灰度/反色/Sepia",
+            18 to "Day 18: 色调/色温",
+            19 to "Day 19: 滤镜管理器",
+            20 to "Day 20: OpenGL UI 控件",
+            21 to "Day 21: 扩展 UI 控件"
         )
+        
+        val displayNames = rendererMap.map { it.second }.toTypedArray()
         
         AlertDialog.Builder(this)
             .setTitle("选择渲染器 (当前: Day $currentDay)")
-            .setItems(days) { _, which ->
-                val newDay = which + 1
+            .setItems(displayNames) { _, which ->
+                val newDay = rendererMap[which].first
                 if (newDay != currentDay) {
                     currentDay = newDay
                     setupRenderer(currentDay)
