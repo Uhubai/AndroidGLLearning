@@ -237,9 +237,9 @@ class Day13Renderer : GLSurfaceView.Renderer {
         
         val aspectRatio = width.toFloat() / height.toFloat()
         if (aspectRatio > 1f) {
-            Matrix.orthoM(projectionMatrix, 0, -aspectRatio * 150f, aspectRatio * 150f, -150f, 150f, -1f, 1f)
+            Matrix.orthoM(projectionMatrix, 0, -aspectRatio * 150f, aspectRatio * 150f, -150f, 150f, 1f, 10f)
         } else {
-            Matrix.orthoM(projectionMatrix, 0, -150f, 150f, -150f / aspectRatio, 150f / aspectRatio, -1f, 1f)
+            Matrix.orthoM(projectionMatrix, 0, -150f, 150f, -150f / aspectRatio, 150f / aspectRatio, 1f, 10f)
         }
     }
     

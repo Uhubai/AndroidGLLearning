@@ -310,14 +310,14 @@ class Day12Renderer : GLSurfaceView.Renderer {
                 projectionMatrix, 0,
                 -aspectRatio * 150f, aspectRatio * 150f,
                 -150f, 150f,
-                -1f, 1f
+                1f, 10f  // near/far 必须是正值，包含相机距离 5
             )
         } else {
             Matrix.orthoM(
                 projectionMatrix, 0,
                 -150f, 150f,
                 -150f / aspectRatio, 150f / aspectRatio,
-                -1f, 1f
+                1f, 10f  // near/far 必须是正值，包含相机距离 5
             )
         }
     }
