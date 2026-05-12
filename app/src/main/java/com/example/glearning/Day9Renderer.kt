@@ -254,15 +254,16 @@ class Day9Renderer : GLSurfaceView.Renderer {
         
         // ==================== 绘制矩形1：原地旋转（左侧） ====================
         
-        // 步骤1：创建 Model 矩阵（旋转 + 平移到左侧）
+        // 步骤1：创建 Model 矩阵（平移到左侧 + 旋转）
+        // 注意：矩阵变换从右到左应用，所以先写平移，后写旋转
         Matrix.setIdentityM(modelMatrix, 0)
         
-        // 先旋转（绕自身中心）
+        // 先平移到左侧（这是矩形的位置）
+        Matrix.translateM(modelMatrix, 0, -80f, 0f, 0f)
+        
+        // 再旋转（绕自身中心原地旋转）
         val angle1 = elapsedSeconds * 60f  // 每秒 60 度
         Matrix.rotateM(modelMatrix, 0, angle1, 0f, 0f, 1f)
-        
-        // 再平移到左侧
-        Matrix.translateM(modelMatrix, 0, -80f, 0f, 0f)
         
         // 步骤2：计算 MVP 组合矩阵
         // temp = V × M
@@ -277,15 +278,16 @@ class Day9Renderer : GLSurfaceView.Renderer {
         
         // ==================== 绘制矩形2：绕原点公转（右侧） ====================
         
-        // 步骤1：创建 Model 矩阵（平移到右侧 + 旋转）
+        // 步骤1：创建 Model 矩阵（旋转 + 平移到右侧）
+        // 注意：矩阵变换从右到左应用，所以先写旋转，后写平移
         Matrix.setIdentityM(modelMatrix, 0)
         
-        // 先平移到右侧（这是公转半径）
-        Matrix.translateM(modelMatrix, 0, 80f, 0f, 0f)
-        
-        // 再旋转（绕原点公转）
+        // 先旋转（绕原点公转）
         val angle2 = elapsedSeconds * 45f  // 每秒 45 度
         Matrix.rotateM(modelMatrix, 0, angle2, 0f, 0f, 1f)
+        
+        // 再平移到右侧（这是公转半径）
+        Matrix.translateM(modelMatrix, 0, 80f, 0f, 0f)
         
         // 步骤2：计算 MVP 组合矩阵
         Matrix.multiplyMM(tempMatrix, 0, viewMatrix, 0, modelMatrix, 0)
